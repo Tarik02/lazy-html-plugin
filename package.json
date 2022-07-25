@@ -16,6 +16,8 @@
     "webpack-dev-server": "^4.9.3"
   },
   "dependencies": {
-    "glob-promise": "^4.2.2"
+    "@tarik02/lazy-html-plugin": "workspace:*",
+    "@tarik02/render-twing-loader": "workspace:*",
+    "html-loader": "^4.1.0"
   }
 }

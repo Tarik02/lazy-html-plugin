@@ -1,0 +1,22 @@
+{
+  "name": "@tarik02/render-twing-loader",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "devDependencies": {
+    "typescript": "^4.7.4",
+    "webpack": "^5.74.0"
+  },
+  "peerDependencies": {
+    "webpack": "^5"
+  },
+  "dependencies": {
+    "twing": "^5.1.1"
+  }
+}

@@ -14,6 +14,8 @@
     "./client": "./client/dist/index.js"
   },
   "dependencies": {
+    "glob": "^8.0.3",
+    "glob-promise": "^4.2.2",
     "html-to-vdom": "^0.7.0",
     "html-webpack-plugin": "^5.5.0",
     "vdom-as-json": "^1.0.11",

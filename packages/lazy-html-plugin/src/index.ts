@@ -148,10 +148,10 @@ class LazyHtmlPlugin {
         })
       );
 
-      compilation.errors.push(
-        ...childCompilation.errors
-      );
-      childCompilation.errors.length = 0;
+      // compilation.errors.push(
+      //   ...childCompilation.errors
+      // );
+      // childCompilation.errors.length = 0;
     });
 
     compiler.hooks.afterCompile.tapPromise(PLUGIN_NAME, async compilation => {
