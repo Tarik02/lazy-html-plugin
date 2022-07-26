@@ -9,8 +9,6 @@ import {
   TwingError
 } from 'twing';
 
-import schema from './options.json';
-
 class PathSupportingArrayLoader extends TwingLoaderArray {
   getSourceContext(name: string, from: TwingSource): Promise<TwingSource> {
     return super.getSourceContext(name, from).then((source) => {
@@ -27,7 +25,22 @@ export type Options = {
 export default function (this: Webpack.LoaderContext<Options>, source: string) {
   const callback = this.async();
 
-  const options = this.getOptions(schema);
+  const options = this.getOptions({
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      context: {
+        type: 'string',
+      },
+      output: {
+        type: 'string',
+        'enum': [
+          'html',
+          'function',
+        ],
+      },
+    },
+  });
   const resourcePath = this.resourcePath;
   const context = options.context || Path.dirname(resourcePath);
 
