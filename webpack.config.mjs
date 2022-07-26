@@ -12,14 +12,14 @@ export default async () => {
       rules: [
         {
           test: /\.twig$/,
-          use: [
-            {
-              loader: 'html-loader',
-            },
-            {
-              loader: '@tarik02/render-twing-loader',
-            },
-          ],
+          use: '@tarik02/render-twing-loader',
+        },
+        {
+          test: /\.jpg$/i,
+          type: 'asset/resource',
+          generator: {
+            filename: 'img/[name].[hash:10][ext]',
+          },
         },
       ],
     },

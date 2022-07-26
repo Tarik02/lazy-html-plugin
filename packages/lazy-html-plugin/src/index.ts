@@ -1,6 +1,5 @@
 import * as Express from 'express';
 import * as globPromise from 'glob-promise';
-import * as HtmlWebpackPlugin from 'html-webpack-plugin';
 import * as Path from 'path';
 import * as Webpack from 'webpack';
 import { DefaultPathMapper } from './path/DefaultPathMapper';
@@ -46,7 +45,7 @@ class LazyHtmlPlugin {
     const options: OptionsNormalized = {
       prefix: this.options.prefix.replace(/(^[\\\/]*|[\\\/]*$)/g, ''),
       directory: Path.resolve(compiler.context, this.options.directory),
-      inputGlob: this.options.inputGlob ?? '**/*',
+      inputGlob: this.options.inputGlob ?? '*',
     };
 
     const pathMapper = isPathMapper(this.options.pathMapper) ?
@@ -127,14 +126,37 @@ class LazyHtmlPlugin {
       childCompiler.outputFileSystem = compiler.outputFileSystem;
 
       for (const name of templates!.used()) {
-        (new HtmlWebpackPlugin({
-          template: `${ Path.resolve(options.directory, pathMapper.nameToInput(name)) }`,
-          filename: `${ options.prefix }/${ pathMapper.nameToOutput(name) }`,
-          chunks: [
-            'app'
-          ],
-        })).apply(childCompiler);
+        const output = `${ options.prefix }/${ pathMapper.nameToOutput(name) }`;
+        const publicPath = Path.relative(`./${ Path.dirname(output) }`, '.') + '/';
+
+        (new Webpack.EntryPlugin(
+          options.directory,
+          [
+            [require.resolve('@tarik02/lazy-html-plugin/extract-loader'), JSON.stringify({
+              output,
+              publicPath,
+            })].join('?'),
+            [require.resolve('html-loader'), JSON.stringify({
+              esModule: false,
+            })].join('?'),
+            `./${ pathMapper.nameToInput(name) }`,
+          ].join('!'),
+          {
+            filename: `${ output }.js`,
+            name: output,
+          }
+        )).apply(childCompiler);
       }
+
+      compilation.hooks.processAssets.tap({
+        name: PLUGIN_NAME,
+        stage: Webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
+        additionalAssets: true,
+      }, () => {
+        for (const name of templates!.used()) {
+          compilation.deleteAsset(`${ options.prefix }/${ pathMapper.nameToOutput(name) }.js`);
+        }
+      });
 
       childCompiler.hooks.initialize.call();
 
@@ -148,15 +170,20 @@ class LazyHtmlPlugin {
         })
       );
 
-      // compilation.errors.push(
-      //   ...childCompilation.errors
-      // );
-      // childCompilation.errors.length = 0;
+      compilation.errors.push(
+        ...childCompilation.errors
+      );
+      childCompilation.errors.length = 0;
+
+      compilation.warnings.push(
+        ...childCompilation.warnings
+      );
+      childCompilation.warnings.length = 0;
     });
 
     compiler.hooks.afterCompile.tapPromise(PLUGIN_NAME, async compilation => {
       compilation.contextDependencies.add(options.directory);
-    })
+    });
   }
 }
 

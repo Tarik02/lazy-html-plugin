@@ -1,12 +1,12 @@
 import * as Path from 'path';
 import * as Webpack from 'webpack';
 import {
-    TwingEnvironment,
-    TwingLoaderFilesystem,
-    TwingLoaderArray,
-    TwingLoaderChain,
-    TwingSource,
-    TwingError
+  TwingEnvironment,
+  TwingLoaderFilesystem,
+  TwingLoaderArray,
+  TwingLoaderChain,
+  TwingSource,
+  TwingError
 } from 'twing';
 
 import schema from './options.json';
@@ -31,6 +31,8 @@ export default function (this: Webpack.LoaderContext<Options>, source: string) {
   const resourcePath = this.resourcePath;
   const context = options.context || Path.dirname(resourcePath);
 
+  this.addDependency(resourcePath);
+
   const env = new TwingEnvironment(new TwingLoaderChain([
     new PathSupportingArrayLoader(new Map([
       [resourcePath, source]
@@ -53,6 +55,18 @@ export default function (this: Webpack.LoaderContext<Options>, source: string) {
         case 'function':
           return `module.exports=function(){return ${ JSON.stringify(result) };};`;
       }
+    })
+    .catch(error => {
+      if (error instanceof TwingError) {
+        const newError = new Webpack.WebpackError(error.name + ': ' + error.getMessage());
+
+        newError.name = error.name;
+        newError.stack = '';
+        newError.hideStack = true;
+
+        throw newError;
+      }
+      throw error;
     })
     .then(result => callback(null, result))
     .catch(error => callback(error));
