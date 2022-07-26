@@ -15,7 +15,7 @@ export const Index = (props: Props) => {
     <ul>
       {props.templates.map(template => (
         <li>
-          <a href={template.file}>{template.name}</a>
+          <a href={`/${ props.prefix }/${ template.file }`}>{template.name}</a>
         </li>
       ))}
     </ul>
