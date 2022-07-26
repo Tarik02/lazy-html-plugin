@@ -10,6 +10,7 @@ import { injectDevServerMiddlewareSetup } from './quirks/injectDevServerMiddlewa
 import { ConstantTemplatesManager } from './templates/ConstantTemplatesManager';
 import { TemplatesManager } from './templates/TemplatesManager';
 import { WatchingTemplatesManager } from './templates/WatchingTemplatesManager';
+import { executeNestedCompiler } from './quirks/executeNestedCompiler';
 
 const PLUGIN_NAME = 'LazyHtmlPlugin';
 
@@ -117,37 +118,6 @@ class LazyHtmlPlugin {
     });
 
     compiler.hooks.make.tapPromise(PLUGIN_NAME, async compilation => {
-      const childCompiler = compilation.createChildCompiler(
-        PLUGIN_NAME,
-        compilation.options.output,
-      );
-      childCompiler.context = compiler.context;
-      childCompiler.inputFileSystem = compiler.inputFileSystem;
-      childCompiler.outputFileSystem = compiler.outputFileSystem;
-
-      for (const name of templates!.used()) {
-        const output = `${ options.prefix }/${ pathMapper.nameToOutput(name) }`;
-        const publicPath = Path.relative(`./${ Path.dirname(output) }`, '.') + '/';
-
-        (new Webpack.EntryPlugin(
-          options.directory,
-          [
-            [require.resolve('@tarik02/lazy-html-plugin/extract-loader'), JSON.stringify({
-              output,
-              publicPath,
-            })].join('?'),
-            [require.resolve('html-loader'), JSON.stringify({
-              esModule: false,
-            })].join('?'),
-            `./${ pathMapper.nameToInput(name) }`,
-          ].join('!'),
-          {
-            filename: `${ output }.js`,
-            name: output,
-          }
-        )).apply(childCompiler);
-      }
-
       compilation.hooks.processAssets.tap({
         name: PLUGIN_NAME,
         stage: Webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
@@ -158,27 +128,30 @@ class LazyHtmlPlugin {
         }
       });
 
-      childCompiler.hooks.initialize.call();
+      await executeNestedCompiler(`${ PLUGIN_NAME } layouts`, compilation, async childCompiler => {
+        for (const name of templates!.used()) {
+          const output = `${ options.prefix }/${ pathMapper.nameToOutput(name) }`;
+          const publicPath = Path.relative(`./${ Path.dirname(output) }`, '.') + '/';
 
-      const [entries, childCompilation] = await new Promise<[Webpack.Chunk[], Webpack.Compilation]>(
-        (resolve, reject) => childCompiler.runAsChild((err, entries, childCompilation) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve([entries!, childCompilation!]);
-          }
-        })
-      );
-
-      compilation.errors.push(
-        ...childCompilation.errors
-      );
-      childCompilation.errors.length = 0;
-
-      compilation.warnings.push(
-        ...childCompilation.warnings
-      );
-      childCompilation.warnings.length = 0;
+          (new Webpack.EntryPlugin(
+            options.directory,
+            [
+              [require.resolve('@tarik02/lazy-html-plugin/extract-loader'), JSON.stringify({
+                output,
+                publicPath,
+              })].join('?'),
+              [require.resolve('html-loader'), JSON.stringify({
+                esModule: false,
+              })].join('?'),
+              `./${ pathMapper.nameToInput(name) }`,
+            ].join('!'),
+            {
+              filename: `${ output }.js`,
+              name: output,
+            }
+          )).apply(childCompiler);
+        }
+      });
     });
 
     compiler.hooks.afterCompile.tapPromise(PLUGIN_NAME, async compilation => {
