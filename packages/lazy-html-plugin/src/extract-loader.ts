@@ -40,10 +40,6 @@ export async function pitch(this: Webpack.LoaderContext<Options>, request: strin
       sourceFilename: this.utils.contextify(this.rootContext, this.resourcePath).replace(/^\.[\\\/]/, ''),
     });
   } catch (e) {
-    this.emitFile(options.output, '', undefined, {
-      sourceFilename: this.utils.contextify(this.rootContext, this.resourcePath).replace(/^\.[\\\/]/, ''),
-    });
-
     if (e.message === 'The loaded module contains errors') {
       return '';
     }

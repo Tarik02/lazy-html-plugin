@@ -18,7 +18,17 @@ export class EntryMiddleware {
 
     const [template, unsubscribe] = this.templates.subscribe(templateName);
 
-    res.send(`<!doctype html><html><head></head><body></body></html><script src="/${this.prefix}/lazy-html-plugin/client.js?prefix=${encodeURIComponent(this.prefix)}&template=${templateName}"></script>`);
+    const unsubscribeData = template.listen(documentData => {
+      unsubscribeData();
+
+      if (res.closed) {
+        return;
+      }
+
+      res.send(`${ documentData }<script src="/${this.prefix}/lazy-html-plugin/client.js?prefix=${encodeURIComponent(this.prefix)}&template=${templateName}"></script>`);
+      // res.send(`${ documentData }`);
+    }, true);
+    // res.send(`<!doctype html><html><head></head><body></body></html><script src="/${this.prefix}/lazy-html-plugin/client.js?prefix=${encodeURIComponent(this.prefix)}&template=${templateName}"></script>`);
 
     setTimeout(
       () => unsubscribe(),

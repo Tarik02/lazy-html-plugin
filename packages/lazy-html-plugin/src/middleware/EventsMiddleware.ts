@@ -45,11 +45,14 @@ export class EventsMiddleware {
           },
         }) }\n\n`);
       } else {
+        // res.write(`data: ${ JSON.stringify({
+        //   type: 'init',
+        //   payload: {
+        //     document,
+        //   },
+        // }) }\n\n`);
         res.write(`data: ${ JSON.stringify({
           type: 'init',
-          payload: {
-            document,
-          },
         }) }\n\n`);
         didSendContent = true;
       }

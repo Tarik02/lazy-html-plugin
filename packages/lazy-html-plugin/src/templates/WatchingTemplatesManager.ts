@@ -1,4 +1,3 @@
-import * as Webpack from 'webpack';
 import { Template } from './Template';
 import { TemplatesManager } from './TemplatesManager';
 
@@ -8,7 +7,10 @@ export class WatchingTemplatesManager implements TemplatesManager {
     subscribersCount: number;
   }>();
 
-  constructor(protected readonly watching: Webpack.Watching) {
+  constructor(
+    protected readonly invalidate: () => void,
+    protected readonly createTemplate: (name: string) => Template,
+  ) {
   }
 
   used() {
@@ -26,14 +28,14 @@ export class WatchingTemplatesManager implements TemplatesManager {
 
   subscribe(name: string): [Template, () => void] {
     if (!this.usedTemplates.has(name)) {
-      const template = new Template();
+      const template = this.createTemplate(name);
 
       this.usedTemplates.set(name, {
         template,
         subscribersCount: 0,
       });
 
-      this.watching.invalidate();
+      this.invalidate();
     }
 
     const container = this.usedTemplates.get(name)!;

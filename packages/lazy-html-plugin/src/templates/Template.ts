@@ -29,11 +29,9 @@ export class Template {
     this.listeners.add(callback);
 
     if (initial && this.currentDocumentData !== undefined) {
-      try {
-        callback(this.currentDocumentData, null);
-      } catch (e) {
-        console.error(e);
-      }
+      Promise.resolve(this.currentDocumentData)
+        .then(data => callback(data, null))
+        .catch(console.error);
     }
 
     return () => {
@@ -55,6 +53,8 @@ export class Template {
       ),
     };
 
+    this.currentDocumentData = `<!doctype html>${ vdomToHtml($html) }`;
+
     newDocument.head.children = newDocument.head?.children?.filter(el => el.tagName?.toLowerCase() !== 'script');
     newDocument.body.children = newDocument.body?.children?.filter(el => el.tagName?.toLowerCase() !== 'script');
 
@@ -66,7 +66,6 @@ export class Template {
       null;
 
     this.currentDocument = newDocument;
-    this.currentDocumentData = vdomToHtml(newDocument.head) + vdomToHtml(newDocument.body);
 
     for (const listener of this.listeners) {
       listener(this.currentDocumentData!, patch);

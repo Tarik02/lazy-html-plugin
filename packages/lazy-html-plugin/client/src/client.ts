@@ -39,14 +39,17 @@ source.addEventListener('message', event => {
         console.log('Received new initial document. Reloading');
         return;
       }
-      document.documentElement.innerHTML = message.payload.document;
+      // document.documentElement.innerHTML = message.payload.document;
       isInitialized = true;
       break;
 
     case 'patch':
       try {
         patch(document.head, vdomFromJson(message.payload.patch.head));
-        patch(document.body, vdomFromJson(message.payload.patch.body));
+        const nb = patch(document.body, vdomFromJson(message.payload.patch.body));
+        if (nb !== document.body) {
+          console.log('new body');
+        }
       } catch (e) {
         console.error(e);
         console.log('Error while patching dom. Reloading');

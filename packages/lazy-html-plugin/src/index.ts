@@ -12,12 +12,13 @@ import { TemplatesManager } from './templates/TemplatesManager';
 import { WatchingTemplatesManager } from './templates/WatchingTemplatesManager';
 import { executeNestedCompiler } from './quirks/executeNestedCompiler';
 import { IndexMiddleware } from './middleware/IndexMiddleware';
+import { Template } from './templates/Template';
 
 const PLUGIN_NAME = 'LazyHtmlPlugin';
 
 type Options = {
-  prefix: string;
-  directory: string;
+  publicPath: string;
+  context: string;
   inputGlob?: string | undefined;
   pathMapper?: (
     | undefined
@@ -31,8 +32,8 @@ type Options = {
 };
 
 type OptionsNormalized = {
-  prefix: string;
-  directory: string;
+  publicPath: string;
+  context: string;
   inputGlob: string;
 };
 
@@ -45,8 +46,8 @@ class LazyHtmlPlugin {
 
   apply(compiler: Webpack.Compiler): void {
     const options: OptionsNormalized = {
-      prefix: this.options.prefix.replace(/(^[\\\/]*|[\\\/]*$)/g, ''),
-      directory: Path.resolve(compiler.context, this.options.directory),
+      publicPath: this.options.publicPath.replace(/(^[\\\/]*|[\\\/]*$)/g, ''),
+      context: Path.resolve(compiler.context, this.options.context),
       inputGlob: this.options.inputGlob ?? '*',
     };
 
@@ -62,24 +63,45 @@ class LazyHtmlPlugin {
 
     injectDevServerMiddlewareSetup(compiler.options, {
       before: (middlewares, devServer) => {
-        templates = new WatchingTemplatesManager(compiler.watching);
+        templates = new WatchingTemplatesManager(
+          () => compiler.watching.invalidate(),
+          name => {
+            const template = new Template();
+            compiler.outputFileSystem.readFile(
+              Path.join(compiler.outputPath, options.publicPath, pathMapper.nameToOutput(name)),
+              (err, content) => {
+                if (err) {
+                  return;
+                }
+                if (!content) {
+                  return;
+                }
+                if (content instanceof Buffer) {
+                  content = content.toString('utf-8');
+                }
+                template.emit(content);
+              }
+            );
+            return template;
+          }
+        );
 
         middlewares.unshift(
           {
-            path: `/${options.prefix}/lazy-html-plugin/__events`,
+            path: `/${options.publicPath}/lazy-html-plugin/__events`,
             middleware: (new EventsMiddleware(templates)).handler,
           },
           {
-            path: `/${options.prefix}/lazy-html-plugin`,
+            path: `/${options.publicPath}/lazy-html-plugin`,
             middleware: Express.static(Path.join(require.resolve('@tarik02/lazy-html-plugin/package.json'), '../client/dist')),
           },
           {
-            path: `/${options.prefix}`,
-            middleware: (new EntryMiddleware(options.prefix, templates, pathMapper)).handler,
+            path: `/${options.publicPath}`,
+            middleware: (new EntryMiddleware(options.publicPath, templates, pathMapper)).handler,
           },
           {
-            path: `/${options.prefix}`,
-            middleware: (new IndexMiddleware(compiler.inputFileSystem as any, options.prefix, options.directory, pathMapper)).handler,
+            path: `/${options.publicPath}`,
+            middleware: (new IndexMiddleware(compiler.inputFileSystem as any, options.publicPath, options.context, pathMapper)).handler,
           },
         );
         return middlewares;
@@ -90,7 +112,7 @@ class LazyHtmlPlugin {
       if (templates === undefined || templates instanceof ConstantTemplatesManager) {
         templates = new ConstantTemplatesManager(
           (await globPromise(options.inputGlob, {
-            cwd: options.directory,
+            cwd: options.context,
             fs: compiler.inputFileSystem as any,
           }))
             .map(file => pathMapper.inputToName(file))
@@ -102,7 +124,7 @@ class LazyHtmlPlugin {
     compiler.hooks.run.tapPromise(PLUGIN_NAME, async () => {
       templates = new ConstantTemplatesManager(
         (await globPromise(options.inputGlob, {
-          cwd: options.directory,
+          cwd: options.context,
           fs: compiler.inputFileSystem as any,
         }))
           .map(file => pathMapper.inputToName(file))
@@ -111,9 +133,9 @@ class LazyHtmlPlugin {
     });
 
     compiler.hooks.assetEmitted.tapPromise(PLUGIN_NAME, async (file, { content }) => {
-      if (file.startsWith(options.prefix + '/')) {
+      if (file.startsWith(options.publicPath + '/')) {
         const templateName = pathMapper.outputToName(
-          Path.relative(options.prefix, file)
+          Path.relative(options.publicPath, file)
         );
 
         if (templateName !== undefined) {
@@ -129,25 +151,23 @@ class LazyHtmlPlugin {
         additionalAssets: true,
       }, () => {
         for (const name of templates!.used()) {
-          compilation.deleteAsset(`${ options.prefix }/${ pathMapper.nameToOutput(name) }.js`);
+          compilation.deleteAsset(`${ options.publicPath }/${ pathMapper.nameToOutput(name) }.js`);
         }
       });
 
       await executeNestedCompiler(`${ PLUGIN_NAME } layouts`, compilation, async childCompiler => {
         for (const name of templates!.used()) {
-          const output = `${ options.prefix }/${ pathMapper.nameToOutput(name) }`;
+          const output = `${ options.publicPath }/${ pathMapper.nameToOutput(name) }`;
           const publicPath = Path.relative(`./${ Path.dirname(output) }`, '.') + '/';
 
           (new Webpack.EntryPlugin(
-            options.directory,
+            options.context,
             [
               [require.resolve('@tarik02/lazy-html-plugin/extract-loader'), JSON.stringify({
                 output,
                 publicPath,
               })].join('?'),
-              [require.resolve('html-loader'), JSON.stringify({
-                esModule: false,
-              })].join('?'),
+              require.resolve('@tarik02/lazy-html-plugin/html-loader'),
               `./${ pathMapper.nameToInput(name) }`,
             ].join('!'),
             {
@@ -160,7 +180,7 @@ class LazyHtmlPlugin {
     });
 
     compiler.hooks.afterCompile.tapPromise(PLUGIN_NAME, async compilation => {
-      compilation.contextDependencies.add(options.directory);
+      compilation.contextDependencies.add(options.context);
     });
   }
 }
