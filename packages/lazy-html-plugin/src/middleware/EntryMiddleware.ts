@@ -13,7 +13,6 @@ export class EntryMiddleware {
   handler = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
     const templateName = this.pathMapper.outputToName(req.path.replace(/^\//, ''));
     if (templateName === undefined) {
-      res.status(404);
       return next();
     }
 

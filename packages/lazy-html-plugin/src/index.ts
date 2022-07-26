@@ -11,6 +11,7 @@ import { ConstantTemplatesManager } from './templates/ConstantTemplatesManager';
 import { TemplatesManager } from './templates/TemplatesManager';
 import { WatchingTemplatesManager } from './templates/WatchingTemplatesManager';
 import { executeNestedCompiler } from './quirks/executeNestedCompiler';
+import { IndexMiddleware } from './middleware/IndexMiddleware';
 
 const PLUGIN_NAME = 'LazyHtmlPlugin';
 
@@ -65,16 +66,20 @@ class LazyHtmlPlugin {
 
         middlewares.unshift(
           {
-            path: `/${options.prefix}/lazy-html-plugin/client.js`,
-            middleware: Express.static(require.resolve('@tarik02/lazy-html-plugin/client')),
+            path: `/${options.prefix}/lazy-html-plugin/__events`,
+            middleware: (new EventsMiddleware(templates)).handler,
           },
           {
-            path: `/${options.prefix}/lazy-html-plugin/events`,
-            middleware: (new EventsMiddleware(templates)).handler,
+            path: `/${options.prefix}/lazy-html-plugin`,
+            middleware: Express.static(Path.join(require.resolve('@tarik02/lazy-html-plugin/package.json'), '../client/dist')),
           },
           {
             path: `/${options.prefix}`,
             middleware: (new EntryMiddleware(options.prefix, templates, pathMapper)).handler,
+          },
+          {
+            path: `/${options.prefix}`,
+            middleware: (new IndexMiddleware(compiler.inputFileSystem as any, options.prefix, options.directory, pathMapper)).handler,
           },
         );
         return middlewares;

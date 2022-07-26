@@ -8,7 +8,7 @@ const scriptParams = ((params: URLSearchParams) => ({
   new URL((document.currentScript! as HTMLScriptElement).src).searchParams
 );
 
-const source = new window.EventSource(`/${ scriptParams.prefix }/lazy-html-plugin/events?template=${ encodeURIComponent(scriptParams.template) }`);
+const source = new window.EventSource(`/${ scriptParams.prefix }/lazy-html-plugin/__events?template=${ encodeURIComponent(scriptParams.template) }`);
 
 type DocumentData = string;
 

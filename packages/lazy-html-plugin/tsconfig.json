@@ -7,9 +7,12 @@
     "declaration": true,
     "strict": true,
     "strictNullChecks": true,
-    "strictPropertyInitialization": true
+    "strictPropertyInitialization": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
   },
   "include": [
+    "client/**/*",
     "src/**/*"
   ]
 }

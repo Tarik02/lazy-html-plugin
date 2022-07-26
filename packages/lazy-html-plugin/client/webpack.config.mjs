@@ -11,18 +11,21 @@ export default async () => {
   const config = {
     mode: process.env.NODE_ENV,
     context,
-    entry: './src/index.ts',
+    entry: {
+      client: './src/client.ts',
+      index: './src/views/Index.tsx',
+    },
     output: {
       path: Path.resolve(context, './dist'),
-      filename: 'index.js',
+      filename: '[name].js',
     },
     resolve: {
-      extensions: [ '.js', '.ts' ],
+      extensions: [ '.js', '.jsx', '.ts', '.tsx' ],
     },
     module: {
       rules: [
         {
-          test: /\.[jt]s$/i,
+          test: /\.[jt]sx?$/i,
           loader: 'babel-loader',
           options: babelConfig,
         },
