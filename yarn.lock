@@ -1908,7 +1908,7 @@ __metadata:
     sass: ^1.54.0
     sass-loader: ^13.0.2
     style-loader: ^3.3.1
-    tailwind-runtime-jit: ^0.1.0
+    tailwind-runtime-jit: ^0.1.1
     tailwindcss: ^3.1.6
     twing-render-loader: ^0.1.0
     unplugin-vue-components: ^0.21.2
@@ -8797,6 +8797,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"simple-functional-loader@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "simple-functional-loader@npm:1.2.1"
+  dependencies:
+    loader-utils: ^2.0.0
+  checksum: 2a0ab40213a34e5aad12fbafb4bad97da08cba565cb3d3a4a648b1172b3cdc6990b603d90d96882f0f6d3b4f52db828ff7b4998f951afeda0f17a58646c7c6e7
+  languageName: node
+  linkType: hard
+
 "sirv@npm:^1.0.7":
   version: 1.0.19
   resolution: "sirv@npm:1.0.19"
@@ -9216,20 +9225,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tailwind-runtime-jit@portal:/home/tarik02/Work/Projects/other/ext-packages/tailwind-runtime-jit::locator=twig-test%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "tailwind-runtime-jit@portal:/home/tarik02/Work/Projects/other/ext-packages/tailwind-runtime-jit::locator=twig-test%40workspace%3A."
+"tailwind-runtime-jit@npm:^0.1.1":
+  version: 0.1.1
+  resolution: "tailwind-runtime-jit@npm:0.1.1"
   dependencies:
     memfs: ^3
     node-polyfill-webpack-plugin: ^2.0.0
     path-browserify: ^1
+    simple-functional-loader: ^1.2.1
     webpack-node-externals: ^3.0.0
   peerDependencies:
     postcss: ^8
     tailwindcss: ^3
     webpack: ^5
+  checksum: 563bcc873f38328d47e7aa90f530f57014df62b26ad4f00af5587bd466c38fc9c2da19df6357d3c89dde025dbf32825ca874b0ef364c874d388d8f17cb833d64
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "tailwindcss@npm:^3.1.6":
   version: 3.1.6
