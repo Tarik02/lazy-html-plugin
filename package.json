@@ -5,8 +5,5 @@
   "license": "MIT",
   "workspaces": [
     "packages/*"
-  ],
-  "resolutions": {
-    "tailwind-runtime-jit": "portal:/home/tarik02/Work/Projects/other/ext-packages/tailwind-runtime-jit"
-  }
+  ]
 }
