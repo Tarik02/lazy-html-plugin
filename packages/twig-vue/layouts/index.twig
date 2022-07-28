@@ -1,0 +1,19 @@
+{% extends '_layouts/base.twig' %}
+
+{% set styles = [] %}
+
+{% block main %}
+    <div class="max-w-[1200px] mx-auto">
+        <h1 class="text-2xl text-center mt-4 mb-10">Index</h1>
+
+        <ol>
+            {% for page in listPages() %}
+                <li class="relative py-4">
+                    <a href="{{ page }}.html" class="absolute inset-0 text-blue-700 underline">
+                        {{ loop.index }}. {{ page }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ol>
+    </div>
+{% endblock main %}

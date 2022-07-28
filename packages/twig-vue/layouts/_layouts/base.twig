@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+
+{% include '_partials/head.twig' %}
+
+<body>
+    {% include '_partials/header.twig' %}
+
+    <main class="px-[60px]">
+        {% block main %}{% endblock %}
+    </main>
+
+    {% include '_partials/js.twig' %}
+</body>
+
+</html>

@@ -1,0 +1,13 @@
+<header class="bg-gray-700 px-[60px] py-5">
+    <div class="max-w-[1200px] mx-auto flex flex-row items-center">
+        <div class="text-white text-xl font-bold">
+            {{ brandName }}
+        </div>
+
+        {% if currentPage != 'index' %}
+            <a href="." class="text-white ml-10">
+                All pages
+            </a>
+        {% endif %}
+    </div>
+</header>
