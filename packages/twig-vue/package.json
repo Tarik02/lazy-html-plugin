@@ -35,7 +35,7 @@
     "sass": "^1.54.0",
     "sass-loader": "^13.0.2",
     "style-loader": "^3.3.1",
-    "tailwind-runtime-jit": "^0.1.1",
+    "tailwind-runtime-jit": "^0.1.2",
     "tailwindcss": "^3.1.6",
     "twing-render-loader": "^0.1.0",
     "unplugin-vue-components": "^0.21.2",
