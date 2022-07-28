@@ -13,6 +13,8 @@ import { WatchingTemplatesManager } from './templates/WatchingTemplatesManager';
 import { executeNestedCompiler } from './quirks/executeNestedCompiler';
 import { IndexMiddleware } from './middleware/IndexMiddleware';
 import { Template } from './templates/Template';
+import { RedirectMiddleware } from './middleware/RedirectMiddleware';
+import { CompilerLock } from './lock';
 
 const PLUGIN_NAME = 'LazyHtmlPlugin';
 
@@ -20,6 +22,7 @@ type Options = {
   publicPath: string;
   context: string;
   inputGlob?: string | undefined;
+  forceAll?: boolean | undefined;
   pathMapper?: (
     | undefined
     | {
@@ -35,6 +38,7 @@ type OptionsNormalized = {
   publicPath: string;
   context: string;
   inputGlob: string;
+  forceAll: boolean;
 };
 
 class LazyHtmlPlugin {
@@ -49,6 +53,7 @@ class LazyHtmlPlugin {
       publicPath: this.options.publicPath.replace(/(^[\\\/]*|[\\\/]*$)/g, ''),
       context: Path.resolve(compiler.context, this.options.context),
       inputGlob: this.options.inputGlob ?? '*',
+      forceAll: this.options.forceAll ?? false,
     };
 
     const pathMapper = isPathMapper(this.options.pathMapper) ?
@@ -60,36 +65,47 @@ class LazyHtmlPlugin {
       );
 
     let templates: TemplatesManager | undefined;
+    let didSetTemplatesDuringCompilation = false;
+
+    if (options.forceAll) {
+      templates = new ConstantTemplatesManager();
+    }
+
+    const lock = new CompilerLock();
 
     injectDevServerMiddlewareSetup(compiler.options, {
       before: (middlewares, devServer) => {
-        templates = new WatchingTemplatesManager(
-          () => compiler.watching.invalidate(),
-          name => {
-            const template = new Template();
-            compiler.outputFileSystem.readFile(
-              Path.join(compiler.outputPath, options.publicPath, pathMapper.nameToOutput(name)),
-              (err, content) => {
-                if (err) {
-                  return;
-                }
-                if (!content) {
-                  return;
-                }
-                if (content instanceof Buffer) {
-                  content = content.toString('utf-8');
-                }
-                template.emit(content);
-              }
-            );
-            return template;
-          }
-        );
+        if (templates === undefined) {
+          templates = new WatchingTemplatesManager(
+            () => compiler.watching.invalidate(),
+            name => {
+              const template = new Template();
+              lock.waitForReady().then(() =>
+                compiler.outputFileSystem.readFile(
+                  Path.join(compiler.outputPath, options.publicPath, pathMapper.nameToOutput(name)),
+                  (err, content) => {
+                    if (err) {
+                      return;
+                    }
+                    if (!content) {
+                      return;
+                    }
+                    if (content instanceof Buffer) {
+                      content = content.toString('utf-8');
+                    }
+                    template.emit(content);
+                  }
+                )
+              );
+              return template;
+            }
+          );
+        }
 
         middlewares.unshift(
           {
             path: `/${options.publicPath}/lazy-html-plugin/__events`,
-            middleware: (new EventsMiddleware(templates)).handler,
+            middleware: new EventsMiddleware(templates).handler,
           },
           {
             path: `/${options.publicPath}/lazy-html-plugin`,
@@ -97,7 +113,7 @@ class LazyHtmlPlugin {
           },
           {
             path: `/${options.publicPath}`,
-            middleware: (new EntryMiddleware(options.publicPath, templates, pathMapper)).handler,
+            middleware: new EntryMiddleware(options.publicPath, templates, pathMapper).handler,
           },
           {
             path: `/${options.publicPath}`,
@@ -105,31 +121,43 @@ class LazyHtmlPlugin {
           },
         );
         return middlewares;
-      }
+      },
+      after: (middlewares, devServer) => {
+        middlewares.push({
+          path: '/',
+          middleware: new RedirectMiddleware(`/${ options.publicPath }`).handler
+        });
+
+        return middlewares;
+      },
     });
 
     compiler.hooks.watchRun.tapPromise(PLUGIN_NAME, async () => {
-      if (templates === undefined || templates instanceof ConstantTemplatesManager) {
-        templates = new ConstantTemplatesManager(
-          (await globPromise(options.inputGlob, {
-            cwd: options.context,
-            fs: compiler.inputFileSystem as any,
-          }))
-            .map(file => pathMapper.inputToName(file))
-            .filter((file): file is string => file !== undefined)
-        );
+      if (templates === undefined) {
+        templates = new ConstantTemplatesManager();
       }
+
+      lock.lock();
     });
 
-    compiler.hooks.run.tapPromise(PLUGIN_NAME, async () => {
-      templates = new ConstantTemplatesManager(
-        (await globPromise(options.inputGlob, {
-          cwd: options.context,
-          fs: compiler.inputFileSystem as any,
-        }))
-          .map(file => pathMapper.inputToName(file))
-          .filter((file): file is string => file !== undefined)
-      );
+    compiler.hooks.beforeRun.tapPromise(PLUGIN_NAME, async () => {
+      if (templates === undefined) {
+        templates = new ConstantTemplatesManager();
+      }
+
+      lock.lock();
+    });
+
+    compiler.hooks.afterDone.tap(PLUGIN_NAME, async stats => {
+      const compilation = stats.compilation;
+
+      console.log(compilation.errors.map(e => ({...e})));
+
+      lock.unlock();
+
+      if (didSetTemplatesDuringCompilation) {
+        templates = undefined;
+      }
     });
 
     compiler.hooks.assetEmitted.tapPromise(PLUGIN_NAME, async (file, { content }) => {
@@ -139,12 +167,35 @@ class LazyHtmlPlugin {
         );
 
         if (templateName !== undefined) {
-          templates!.emit(templateName, content.toString('utf-8'));
+          lock.waitForReady().then(
+            () => templates!.emit(templateName, content.toString('utf-8'))
+          );
         }
       }
     });
 
     compiler.hooks.make.tapPromise(PLUGIN_NAME, async compilation => {
+      const compilationTemplates: string[] = [];
+      didSetTemplatesDuringCompilation = false;
+
+      if (templates !== undefined) {
+        compilationTemplates.push(...templates.used());
+      } else {
+        didSetTemplatesDuringCompilation = true;
+        templates = new ConstantTemplatesManager();
+      }
+
+      if (templates instanceof ConstantTemplatesManager) {
+        templates.update(
+          (await globPromise(options.inputGlob, {
+            cwd: options.context,
+            fs: compiler.inputFileSystem as any,
+          }))
+            .map(file => pathMapper.inputToName(file))
+            .filter((file): file is string => file !== undefined)
+        );
+      }
+
       compilation.hooks.processAssets.tap({
         name: PLUGIN_NAME,
         stage: Webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
@@ -155,7 +206,7 @@ class LazyHtmlPlugin {
         }
       });
 
-      await executeNestedCompiler(`${ PLUGIN_NAME } layouts`, compilation, async childCompiler => {
+      await executeNestedCompiler(PLUGIN_NAME, compilation, async childCompiler => {
         for (const name of templates!.used()) {
           const output = `${ options.publicPath }/${ pathMapper.nameToOutput(name) }`;
           const publicPath = Path.relative(`./${ Path.dirname(output) }`, '.') + '/';
@@ -163,11 +214,11 @@ class LazyHtmlPlugin {
           (new Webpack.EntryPlugin(
             options.context,
             [
-              [require.resolve('@tarik02/lazy-html-plugin/extract-loader'), JSON.stringify({
+              ['@tarik02/lazy-html-plugin/extract-loader', JSON.stringify({
                 output,
                 publicPath,
               })].join('?'),
-              require.resolve('@tarik02/lazy-html-plugin/html-loader'),
+              '@tarik02/lazy-html-plugin/html-loader',
               `./${ pathMapper.nameToInput(name) }`,
             ].join('!'),
             {

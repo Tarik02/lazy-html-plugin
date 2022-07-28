@@ -22,7 +22,6 @@
     "glob-promise": "^4.2.2",
     "html-loader": "^4.1.0",
     "html-to-vdom": "^0.7.0",
-    "inert-entry-webpack-plugin": "^4.0.2",
     "md5": "^2.3.0",
     "preact": "^10.10.0",
     "preact-render-to-string": "^5.2.1",

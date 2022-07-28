@@ -4,9 +4,20 @@ import { TemplatesManager } from './TemplatesManager';
 export class ConstantTemplatesManager implements TemplatesManager {
   protected readonly templates = new Map<string, Template>();
 
-  constructor(templateNames: string[]) {
+  constructor() {
+  }
+
+  update(templateNames: string[]) {
+    for (const key of this.templates.keys()) {
+      if (!templateNames.includes(key)) {
+        this.templates.delete(key);
+      }
+    }
+
     for (const name of templateNames) {
-      this.templates.set(name, new Template);
+      if (!this.templates.has(name)) {
+        this.templates.set(name, new Template);
+      }
     }
   }
 

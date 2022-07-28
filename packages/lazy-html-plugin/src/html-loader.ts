@@ -6,6 +6,25 @@ export default function (this: Webpack.LoaderContext<{}>, content: string) {
   this.getOptions = ((schema: any) => {
     const result = oldGetOptions(schema) as any;
     result.esModule = false;
+
+    if (result.minimize !== false) {
+      if (typeof result.minimize !== 'object') {
+        result.minimize = {
+          caseSensitive: true,
+          collapseWhitespace: true,
+          conservativeCollapse: true,
+          keepClosingSlash: true,
+          minifyCSS: true,
+          minifyJS: true,
+          removeComments: true,
+          removeRedundantAttributes: true,
+          removeScriptTypeAttributes: true,
+          removeStyleLinkTypeAttributes: true,
+        };
+      }
+      result.minimize.conservativeCollapse = false;
+    }
+
     result.sources = {
       list: [
         '...',

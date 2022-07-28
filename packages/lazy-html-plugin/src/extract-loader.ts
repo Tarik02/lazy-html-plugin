@@ -5,7 +5,7 @@ type Options = {
   output: string;
 };
 
-export async function pitch(this: Webpack.LoaderContext<Options>, request: string) {
+export async function pitch(this: Webpack.LoaderContext<Options>, request: string, remainingRequest: string) {
   const options = this.getOptions({
     type: 'object',
     required: ['publicPath', 'output'],
@@ -19,16 +19,7 @@ export async function pitch(this: Webpack.LoaderContext<Options>, request: strin
     },
   });
 
-  this.addDependency(this.resourcePath);
-
   try {
-    await new Promise<void>((resolve, reject) => {
-      this.loadModule(
-        `${ this.resourcePath }.webpack[javascript/auto]!=!${ request }`,
-        err => err ? reject(err) : resolve()
-      );
-    });
-
     const res = await this.importModule(
       `${ this.resourcePath }.webpack[javascript/auto]!=!${ request }`,
       {
@@ -40,12 +31,10 @@ export async function pitch(this: Webpack.LoaderContext<Options>, request: strin
       sourceFilename: this.utils.contextify(this.rootContext, this.resourcePath).replace(/^\.[\\\/]/, ''),
     });
   } catch (e) {
-    if (e.message === 'The loaded module contains errors') {
-      return '';
-    }
-
-    throw e;
   }
+};
 
+
+export default async function (this: Webpack.LoaderContext<Options>, source: string, remainingRequest: string) {
   return '';
 };

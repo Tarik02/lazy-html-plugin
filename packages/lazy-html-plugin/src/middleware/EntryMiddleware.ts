@@ -30,9 +30,11 @@ export class EntryMiddleware {
     }, true);
     // res.send(`<!doctype html><html><head></head><body></body></html><script src="/${this.prefix}/lazy-html-plugin/client.js?prefix=${encodeURIComponent(this.prefix)}&template=${templateName}"></script>`);
 
-    setTimeout(
-      () => unsubscribe(),
-      1000
-    );
+    res.on('close', () => {
+      setTimeout(() => {
+        unsubscribe();
+        unsubscribeData();
+      }, 1000);
+    });
   }
 }

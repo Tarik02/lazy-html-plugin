@@ -1,0 +1,11 @@
+{% if mode == 'development' %}
+    <script src="../js/css/runtime.js"></script>
+{% endif %}
+
+{% for link in ['app'] | merge(styles) | merge(['utilities']) %}
+    {% if mode == 'production' %}
+        <link rel="stylesheet" href="../css/{{ link }}.css">
+    {% else %}
+        <script src="../js/css/{{ link }}.js"></script>
+    {% endif %}
+{% endfor %}

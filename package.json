@@ -6,6 +6,7 @@
     "build": "cross-env NODE_ENV=production webpack"
   },
   "workspaces": [
+    "examples/*",
     "packages/*"
   ],
   "packageManager": "yarn@3.2.2",

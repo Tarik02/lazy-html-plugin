@@ -9,7 +9,9 @@ import {
   TwingLoaderChain,
   TwingSource,
   TwingError,
-  TwingCacheInterface
+  TwingCacheInterface,
+  TwingLoaderInterface,
+  TwingLoaderRelativeFilesystem
 } from 'twing';
 
 class PathSupportingArrayLoader extends TwingLoaderArray {
@@ -19,6 +21,53 @@ class PathSupportingArrayLoader extends TwingLoaderArray {
     });
   }
 }
+
+const resolvePotentialDependencyLocations = function* (request: string, from: TwingSource, loader: TwingLoaderInterface): Generator<string> {
+  if (loader instanceof TwingLoaderArray) {
+    return;
+  }
+
+  if (loader instanceof TwingLoaderChain) {
+    for (const subloader of loader.getLoaders()) {
+      yield* resolvePotentialDependencyLocations(request, from, subloader);
+    }
+    return;
+  }
+
+  if (loader instanceof TwingLoaderFilesystem) {
+    for (const ns of loader.getNamespaces()) {
+      const prefix = ns === TwingLoaderFilesystem.MAIN_NAMESPACE ? '' : `@${ns}/`;
+      if (!request.startsWith(prefix)) {
+        continue;
+      }
+
+      for (const nsPath of loader.getPaths(ns)) {
+        yield Path.join(nsPath, request.substring(prefix.length));
+      }
+    }
+  }
+
+  if (loader instanceof TwingLoaderRelativeFilesystem) {
+    if (Path.isAbsolute(request)) {
+      return;
+    }
+    yield Path.join(Path.dirname(from.getResolvedName()), request);
+  }
+};
+
+const castError = (error: any): Error => {
+  if (error instanceof TwingError) {
+    const newError = new Webpack.WebpackError(error.name + ': ' + error.getMessage());
+
+    newError.name = error.name;
+    newError.stack = '';
+    newError.hideStack = true;
+
+    error = newError;
+  }
+
+  return error instanceof Error ? error : new Error(error as any);
+};
 
 export type Options = {
   context?: undefined | string;
@@ -86,22 +135,22 @@ export default async function (this: Webpack.LoaderContext<Options>, source: str
 
     this.addDependency(resourcePath);
 
-    const env = new TwingEnvironment(new TwingLoaderChain([
-      new TwingLoaderFilesystem([''], context),
-    ]));
-    env.setCache(cache);
-
+    let environmentModule;
     if (options.environmentModule) {
       this.addDependency(options.environmentModule);
-
-      const module = await import(`${ options.environmentModule }?${ Date.now() }`);
-
-      await module.default.call(
-        this,
-        env,
-        options.environmentParams ?? {}
-      );
+      environmentModule = (await import(`${options.environmentModule}?${Date.now()}`));
     }
+
+    const env = new TwingEnvironment(new TwingLoaderChain([
+      new TwingLoaderFilesystem([context], context),
+    ]), environmentModule?.options);
+    env.setCache(cache);
+
+    await environmentModule?.configure?.call(
+      this,
+      env,
+      options.environmentParams ?? {}
+    );
 
     env.setLoader(new TwingLoaderChain([
       new PathSupportingArrayLoader(new Map([
@@ -110,34 +159,35 @@ export default async function (this: Webpack.LoaderContext<Options>, source: str
       env.getLoader(),
     ]));
 
-    env.on('template', async (name: string, from: TwingSource) => {
-      const sourceContext = await env.getLoader().getSourceContext(name, from);
-      this.addDependency(Path.resolve(sourceContext.getResolvedName()));
+    env.on('template', async (name: string, from?: TwingSource) => {
+      if (!from) {
+        return;
+      }
+
+      try {
+        const sourceContext = await env.getLoader().getSourceContext(name, from);
+        this.addDependency(sourceContext.getResolvedName());
+      } catch {
+        for (const loc of resolvePotentialDependencyLocations(name, from, env.getLoader())) {
+          this.addMissingDependency(loc);
+        }
+      }
     });
 
     let result = await env.render(resourcePath, {});
 
     switch (options.output) {
-    case undefined:
-    case 'html':
-      break;
+      case undefined:
+      case 'html':
+        break;
 
-    case 'function':
-      result = `module.exports=function(){return ${ JSON.stringify(result) };};`;
-      break;
+      case 'function':
+        result = `module.exports=function(){return ${JSON.stringify(result)};};`;
+        break;
     }
 
     callback(null, result);
   } catch (error) {
-    if (error instanceof TwingError) {
-      const newError = new Webpack.WebpackError(error.name + ': ' + error.getMessage());
-
-      newError.name = error.name;
-      newError.stack = '';
-      newError.hideStack = true;
-
-      error = newError;
-    }
-    callback(error instanceof Error ? error : new Error(error as any));
+    callback(castError(error));
   }
 };
