@@ -1,5 +1,4 @@
-import { globby } from 'globby';
-import * as Path from 'path';
+import { fileURLToPath } from 'node:url';
 import * as Webpack from 'webpack';
 import WebpackHtmlBuilder from 'webpack-html-builder';
 import { merge } from 'webpack-merge';
@@ -7,24 +6,20 @@ import { merge } from 'webpack-merge';
 import { buildConfig as buildBaseConfig } from './webpack.config.base.mjs';
 
 /**
- * @param {object} env
  * @param {string} context
- * @param {'development' | 'production'} mode
+ * @param {Awaited<ReturnType<import('../config.src.mjs').default>>} config
+ * @return {Promise<Webpack.Configuration>}
  */
-export const buildConfig = async (env, context, mode) => {
-    const baseConfig = await buildBaseConfig(env, context, 'src', mode);
+export const buildConfig = async (context, config) => {
+    const { mode } = config;
+    const baseConfig = await buildBaseConfig(context, config);
 
     /** @type {Webpack.Configuration} */
-    const config = {
+    const webpackConfig = {
         output: {
             filename: 'js/[name].js',
             chunkFilename: 'js/[name].js',
             clean: true
-        },
-        resolve: {
-            alias: {
-                vue: 'vue/dist/vue.js'
-            }
         },
         module: {
             rules: [
@@ -32,7 +27,7 @@ export const buildConfig = async (env, context, mode) => {
                     test: /\.twig$/i,
                     loader: 'twing-render-loader',
                     options: {
-                        environmentModule: new URL('twing.env.mjs', import.meta.url).pathname
+                        environmentModule: fileURLToPath(new URL('twing.env.mjs', import.meta.url))
                     }
                 }
             ]
@@ -40,7 +35,7 @@ export const buildConfig = async (env, context, mode) => {
         plugins: [
             new WebpackHtmlBuilder({
                 publicPath: 'layouts',
-                context: 'layouts',
+                context: config.layouts,
                 pathMapper: {
                     inputSuffix: '.twig'
                 }
@@ -48,16 +43,20 @@ export const buildConfig = async (env, context, mode) => {
         ]
     };
 
-    return merge(
+    const resultConfig = merge(
         baseConfig,
-        config
+        webpackConfig,
+        config.mergeWebpack ?? {}
     );
+
+    config.webpack?.(resultConfig);
+
+    return resultConfig;
 };
 
-export default async env => {
-    /** @type {'development' | 'production'} */
-    const mode = process.env.NODE_ENV || 'development';
-    const context = new URL('..', import.meta.url).pathname;
+export default async (env, { mode }) => {
+    const { context, default: configFactory } = await import('../config.src.mjs');
+    const config = await configFactory({ env, mode });
 
-    return await buildConfig(env, context, mode);
+    return await buildConfig(context, config);
 };

@@ -15,19 +15,19 @@ import babelConfig from './babel.config.mjs';
 import postcssConfig from './postcss.config.mjs';
 
 /**
- * @param {object} env
  * @param {string} context
- * @param {'src' | 'pub'} type
- * @param {'development' | 'production'} mode
+ * @param {Awaited<ReturnType<import('../config.src.mjs').default>>|Awaited<ReturnType<import('../config.pub.mjs').default>>} config
  * @return {Promise<Webpack.Configuration>}
  */
-export const buildConfig = async (env, context, type, mode) => {
+export const buildConfig = async (context, config) => {
+    const { mode, type } = config;
+
     /** @type {Webpack.Configuration} */
-    const config = {
+    const webpackConfig = {
         mode,
         context,
         output: {
-            path: Path.join(context, `dist/${ type }`)
+            path: config.output
         },
         module: {
             rules: [
@@ -144,7 +144,7 @@ export const buildConfig = async (env, context, type, mode) => {
                     Path.join(context, `./js-${ type }/components`)
                 ]
             }),
-            ...env.WEBPACK_SERVE ? [ new WebpackDevLazy ] : [],
+            ...config.env.WEBPACK_SERVE ? [ new WebpackDevLazy ] : [],
 
             new WebpackBetterEntries(async function *({ glob }) {
                 yield {
@@ -155,7 +155,7 @@ export const buildConfig = async (env, context, type, mode) => {
                     }[mode],
                 };
 
-                for await (const file of glob([`./js-${ type }/*.+(js|ts)`])) {
+                for await (const file of glob(config.js)) {
                     const name = Path.basename(file, Path.extname(file));
 
                     yield {
@@ -165,7 +165,7 @@ export const buildConfig = async (env, context, type, mode) => {
                     };
                 }
 
-                for await (const file of glob(['./scss/*.scss', './scss/!_*.scss'])) {
+                for await (const file of glob(config.css)) {
                     const name = Path.basename(file, Path.extname(file));
 
                     yield {
@@ -196,7 +196,7 @@ export const buildConfig = async (env, context, type, mode) => {
     };
 
     if (mode === 'production') {
-        config.optimization.minimizer.push(
+        webpackConfig.optimization.minimizer.push(
             new ImageMinimizerPlugin({
                 minimizer: {
                     implementation: ImageMinimizerPlugin.imageminMinify,
@@ -226,11 +226,11 @@ export const buildConfig = async (env, context, type, mode) => {
     }
 
     if (mode === 'development') {
-        config.performance = {
+        webpackConfig.performance = {
             hints: false
         };
-        config.devtool = 'inline-source-map';
+        webpackConfig.devtool = 'inline-source-map';
     }
 
-    return config;
+    return webpackConfig;
 };

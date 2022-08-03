@@ -10,15 +10,16 @@ import { merge } from 'webpack-merge';
 import { buildConfig as buildBaseConfig } from './webpack.config.base.mjs';
 
 /**
- * @param {object} env
  * @param {string} context
- * @param {'development' | 'production'} mode
+ * @param {Awaited<ReturnType<import('../config.pub.mjs').default>>} config
+ * @return {Promise<Webpack.Configuration>}
  */
-export const buildConfig = async (env, context, mode) => {
-    const baseConfig = await buildBaseConfig(env, context, 'pub', mode);
+ export const buildConfig = async (context, config) => {
+    const { mode } = config;
+    const baseConfig = await buildBaseConfig(context, config);
 
     /** @type {Webpack.Configuration} */
-    const config = {
+    const webpackConfig = {
         output: {
             filename: {
                 development: 'js/[name].js',
@@ -64,16 +65,20 @@ export const buildConfig = async (env, context, mode) => {
         ]
     };
 
-    return merge(
+    const resultConfig = merge(
         baseConfig,
-        config
+        webpackConfig,
+        config.mergeWebpack ?? {}
     );
+
+    config.webpack?.(resultConfig);
+
+    return resultConfig;
 };
 
-export default async env => {
-    /** @type {'development' | 'production'} */
-    const mode = process.env.NODE_ENV || 'development';
-    const context = new URL('..', import.meta.url).pathname;
+export default async (env, { mode }) => {
+    const { context, default: configFactory } = await import('../config.pub.mjs');
+    const config = await configFactory({ env, mode });
 
-    return await buildConfig(env, context, mode);
+    return await buildConfig(context, config);
 };
