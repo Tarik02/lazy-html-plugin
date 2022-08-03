@@ -7,7 +7,8 @@ import TailwindJitPlugin from 'tailwind-runtime-jit/webpack';
 import UnpluginVueComponents from 'unplugin-vue-components/webpack';
 import { VueLoaderPlugin } from 'vue-loader';
 import Webpack from 'webpack';
-import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+import WebpackBetterEntries from 'webpack-better-entries';
+import WebpackDevLazy from 'webpack-dev-lazy';
 import WebpackNotifierPlugin from 'webpack-notifier';
 
 import babelConfig from './babel.config.mjs';
@@ -74,6 +75,10 @@ export const buildConfig = async (env, context, type, mode) => {
                     ]
                 },
                 {
+                    test: /^@svg[\\\/].*\.svg$/i,
+                    use: 'svg-loader'
+                },
+                {
                     test: /\.json$/,
                     type: 'asset/resource',
                     generator: {
@@ -108,19 +113,9 @@ export const buildConfig = async (env, context, type, mode) => {
         resolve: {
             extensions: [ '.js', '.ts', '.json', '.vue' ],
             alias: {
-                '@src': Path.join(context, '.'),
                 '@img': Path.join(context, './img'),
-                '@': Path.join(context, `./js-${ type }`),
-                '@store': Path.join(context, `./js-${ type }/store`),
-                '@plugins': Path.join(context, `./js-${ type }/plugins`),
-                '@components': Path.join(context, `./js-${ type }/components`),
-                '@constants': Path.join(context, `./js-${ type }/constants`),
-                '@routes': Path.join(context, `./js-${ type }/routes`),
-                '@helpers': Path.join(context, `./js-${ type }/helpers`),
-                '@modules': Path.join(context, `./js-${ type }/modules`),
-                '@mixins': Path.join(context, `./js-${ type }/mixins`),
-                '@utils': Path.join(context, `./js-${ type }/utils`),
-                '@vendor': Path.join(context, `./js-${ type }/vendor`)
+                '@svg': Path.join(context, './img/svg'),
+                '@': Path.join(context, `./js-${ type }`)
             }
         },
         plugins: [
@@ -149,7 +144,37 @@ export const buildConfig = async (env, context, type, mode) => {
                     Path.join(context, `./js-${ type }/components`)
                 ]
             }),
-            ...env.analyze ? [new BundleAnalyzerPlugin()] : []
+            ...env.WEBPACK_SERVE ? [ new WebpackDevLazy ] : [],
+
+            new WebpackBetterEntries(async function *({ glob }) {
+                yield {
+                    name: 'css/runtime',
+                    import: {
+                        development: './build/tailwind.config.js',
+                        production: 'data:application/javascript;base64,'
+                    }[mode],
+                };
+
+                for await (const file of glob([`./js-${ type }/*.+(js|ts)`])) {
+                    const name = Path.basename(file, Path.extname(file));
+
+                    yield {
+                        name,
+                        dependOn: 'css/runtime',
+                        import: file
+                    };
+                }
+
+                for await (const file of glob(['./scss/*.scss', './scss/!_*.scss'])) {
+                    const name = Path.basename(file, Path.extname(file));
+
+                    yield {
+                        name: `css/${name}`,
+                        dependOn: 'css/runtime',
+                        import: file
+                    };
+                }
+            })
         ],
         // cache: {
         //     type: 'filesystem'
@@ -159,6 +184,14 @@ export const buildConfig = async (env, context, type, mode) => {
             minimizer: [
                 '...'
             ]
+        },
+        devServer: {
+            allowedHosts: 'all',
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+                'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization'
+            }
         }
     };
 

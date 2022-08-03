@@ -19,29 +19,6 @@ export const buildConfig = async (env, context, mode) => {
 
     /** @type {Webpack.Configuration} */
     const config = {
-        entry: async () => {
-            const entries = {
-                app: {
-                    dependOn: mode === 'development' ? 'css/runtime' : undefined,
-                    import: './js-pub/index.js'
-                }
-            };
-
-            entries['css/runtime'] = {
-                development: './build/tailwind.config.js',
-                production: 'data:application/javascript;base64,'
-            }[mode];
-            for (const file of await globby(['./scss/*.scss', './scss/!_*.scss'], { cwd: context })) {
-                const name = Path.basename(file, '.scss');
-
-                entries[`css/${name}`] = {
-                    dependOn: 'css/runtime',
-                    import: file
-                };
-            }
-
-            return entries;
-        },
         output: {
             filename: {
                 development: 'js/[name].js',
@@ -84,15 +61,7 @@ export const buildConfig = async (env, context, mode) => {
                 entrypoints: true
             }),
             new WebpackHotLockPlugin()
-        ],
-        devServer: {
-            allowedHosts: 'all',
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-                'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization'
-            }
-        }
+        ]
     };
 
     return merge(

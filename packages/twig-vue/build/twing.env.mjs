@@ -9,21 +9,21 @@ export const options = {
 };
 
 /**
+ * @param {import('webpack').LoaderContext<{}>} loader
  * @param {import('twing').TwingEnvironment} env
- * @this {import('webpack').LoaderContext<{}>}
  */
-export async function configure(env, params) {
-    env.addGlobal('mode', this.mode);
+export async function configure({ loader, env }) {
+    env.addGlobal('mode', loader.mode);
 
-    env.addGlobal('currentPage', Path.basename(Path.relative(this.context, this.resourcePath), '.twig'));
+    env.addGlobal('currentPage', Path.basename(Path.relative(loader.context, loader.resourcePath), '.twig'));
 
     env.addFunction(new TwingFunction('listPages', async (pattern = '*.twig', ext = '.twig', excludeSelf = true) => {
-        this.addContextDependency(this.context);
+        loader.addContextDependency(loader.context);
 
-        let files = await globby(pattern, { cwd: this.context });
+        let files = await globby(pattern, { cwd: loader.context });
 
         if (excludeSelf) {
-            files = files.filter(file => file !== Path.relative(this.context, this.resourcePath));
+            files = files.filter(file => file !== Path.relative(loader.context, loader.resourcePath));
         }
 
         files = files.map(file => Path.basename(file, ext));
@@ -35,8 +35,8 @@ export async function configure(env, params) {
         { name: 'excludeSelf' }
     ]));
 
-    const globalDataSrc = Path.join(this.context, '_data/_global.json');
-    this.addDependency(globalDataSrc);
+    const globalDataSrc = Path.join(loader.context, '_data/_global.json');
+    loader.addDependency(globalDataSrc);
     const globals = JSON.parse(await FS.promises.readFile(globalDataSrc, { encoding: 'utf-8' }));
     for (const [key, value] of Object.entries(globals)) {
         env.addGlobal(key, value);
