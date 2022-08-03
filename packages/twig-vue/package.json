@@ -3,11 +3,14 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "pub-dev": "webpack -c build/webpack.config.pub.mjs --mode development",
+    "pub-watch": "webpack watch -c build/webpack.config.pub.mjs --mode development",
+    "pub-serve": "webpack serve -c build/webpack.config.pub.mjs --mode development",
     "pub-prod": "webpack -c build/webpack.config.pub.mjs --mode production",
-    "pub-dev": "webpack serve -c build/webpack.config.pub.mjs --mode development",
-    "src-prod": "webpack -c build/webpack.config.src.mjs --mode production",
+    "src-dev": "webpack -c build/webpack.config.src.mjs --mode development",
     "src-watch": "webpack watch -c build/webpack.config.src.mjs --mode development",
-    "src-dev": "webpack serve -c build/webpack.config.src.mjs --mode development"
+    "src-serve": "webpack serve -c build/webpack.config.src.mjs --mode development",
+    "src-prod": "webpack -c build/webpack.config.src.mjs --mode production"
   },
   "devDependencies": {
     "@babel/core": "^7.18.9",
